@@ -1,12 +1,96 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Guitar Chord Finder</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Guitar Chord Finder</title>
+  <style>
+    body { font-family: sans-serif; background: #1e293b; color: white; padding: 2rem; }
+    button { margin: 2px; padding: 4px 8px; }
+    .fretboard { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 1rem; }
+    .string-column { display: flex; flex-direction: column; align-items: center; }
+    .note-button { width: 40px; height: 30px; }
+    .result { background: #334155; margin-top: 1rem; padding: 1rem; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1>🎸 Guitar Chord Finder</h1>
+  <div class="fretboard" id="fretboard"></div>
+  <button onclick="reset()">Reset</button>
+  <div class="result" id="output">Select frets to see chords</div>
+
+  <script>
+    const strings = ['E', 'A', 'D', 'G', 'B', 'E'];
+    const frets = Array.from({ length: 12 }, (_, i) => i);
+    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const openNotes = [4, 9, 2, 7, 11, 4];
+    const selectedFrets = {};
+
+    function getNote(s, f) {
+      return (openNotes[s] + f) % 12;
+    }
+
+    function getNoteName(n) {
+      return noteNames[n];
+    }
+
+    function reset() {
+      Object.keys(selectedFrets).forEach(k => delete selectedFrets[k]);
+      document.getElementById('fretboard').innerHTML = '';
+      init();
+      document.getElementById('output').innerText = 'Select frets to see chords';
+    }
+
+    function init() {
+      const board = document.getElementById('fretboard');
+      strings.forEach((str, sIdx) => {
+        const col = document.createElement('div');
+        col.className = 'string-column';
+        col.innerHTML = '<strong>' + str + '</strong>';
+        frets.forEach(f => {
+          const btn = document.createElement('button');
+          btn.className = 'note-button';
+          btn.onclick = () => {
+            const key = sIdx + '-' + f;
+            if (selectedFrets[key]) {
+              delete selectedFrets[key];
+              btn.style.background = '';
+              btn.innerText = '';
+            } else {
+              Object.keys(selectedFrets).forEach(k => {
+                if (k.startsWith(sIdx + '-')) delete selectedFrets[k];
+              });
+              selectedFrets[key] = true;
+              btn.style.background = '#2563eb';
+              btn.style.color = 'white';
+              btn.innerText = getNoteName(getNote(sIdx, f));
+            }
+            analyze();
+          };
+          col.appendChild(btn);
+        });
+        board.appendChild(col);
+      });
+    }
+
+    async function analyze() {
+      const res = await fetch('chord_formulas_extracted.json');
+      const data = await res.json();
+      const notes = Object.keys(selectedFrets).map(k => getNote(...k.split('-').map(Number)));
+      const uniqueNotes = [...new Set(notes)];
+      const results = data.filter(chord => {
+        const formula = chord.formula.split(',').map(f =>
+          parseInt(f.replace(/[^\d]/g, ''), 10)).map(i => (uniqueNotes[0] + i) % 12);
+        const match = formula.filter(n => uniqueNotes.includes(n));
+        return match.length >= Math.min(3, formula.length);
+      });
+      const output = document.getElementById('output');
+      output.innerHTML = results.length
+        ? results.slice(0, 5).map(c => `<div><strong>${c.name}</strong> – ${c.formula}</div>`).join('')
+        : 'No chord match';
+    }
+
+    init();
+  </script>
+</body>
 </html>
