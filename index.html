@@ -75,7 +75,9 @@
 
     async function analyze() {
       const res = await fetch('./chord_formulas_extracted.json');
+      console.log("Fetching chord data...");
       const data = await res.json();
+      console.log("Chord data loaded:", data);
       const notes = Object.keys(selectedFrets).map(k => getNote(...k.split('-').map(Number)));
       const uniqueNotes = [...new Set(notes)];
       const results = data.filter(chord => {
