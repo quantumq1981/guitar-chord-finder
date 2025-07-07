@@ -3,21 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Guitar Chord Finder</title>
+  <title>Guitar Chord Finder (Debug)</title>
   <style>
     body { font-family: sans-serif; background: #1e293b; color: white; padding: 2rem; }
     button { margin: 2px; padding: 4px 8px; }
     .fretboard { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 1rem; }
     .string-column { display: flex; flex-direction: column; align-items: center; }
     .note-button { width: 40px; height: 30px; }
-    .result { background: #334155; margin-top: 1rem; padding: 1rem; border-radius: 8px; }
+    .result, .debug { background: #334155; margin-top: 1rem; padding: 1rem; border-radius: 8px; }
+    .debug { color: #93c5fd; font-size: 0.9rem; white-space: pre-wrap; }
   </style>
 </head>
 <body>
-  <h1>🎸 Guitar Chord Finder</h1>
+  <h1>🎸 Guitar Chord Finder (Debug)</h1>
   <div class="fretboard" id="fretboard"></div>
   <button onclick="reset()">Reset</button>
   <div class="result" id="output">Select frets to see chords</div>
+  <div class="debug" id="debugOutput">Debug log will appear here...</div>
 
   <script>
     const strings = ['E', 'A', 'D', 'G', 'B', 'E'];
@@ -39,6 +41,7 @@
       document.getElementById('fretboard').innerHTML = '';
       init();
       document.getElementById('output').innerText = 'Select frets to see chords';
+      document.getElementById('debugOutput').innerText = 'Reset. Debug log will appear here...';
     }
 
     function init() {
@@ -74,22 +77,28 @@
     }
 
     async function analyze() {
-      const res = await fetch('./chord_formulas_extracted.json');
-      console.log("Fetching chord data...");
-      const data = await res.json();
-      console.log("Chord data loaded:", data);
-      const notes = Object.keys(selectedFrets).map(k => getNote(...k.split('-').map(Number)));
-      const uniqueNotes = [...new Set(notes)];
-      const results = data.filter(chord => {
-        const formula = chord.formula.split(',').map(f =>
-          parseInt(f.replace(/[^\d]/g, ''), 10)).map(i => (uniqueNotes[0] + i) % 12);
-        const match = formula.filter(n => uniqueNotes.includes(n));
-        return match.length >= Math.min(3, formula.length);
-      });
-      const output = document.getElementById('output');
-      output.innerHTML = results.length
-        ? results.slice(0, 5).map(c => `<div><strong>${c.name}</strong> – ${c.formula}</div>`).join('')
-        : 'No chord match';
+      try {
+        const res = await fetch('./chord_formulas_extracted.json');
+        document.getElementById('debugOutput').innerText = 'Fetching chord data...';
+        const data = await res.json();
+        document.getElementById('debugOutput').innerText = 'Chord data loaded: ' + JSON.stringify(data, null, 2);
+
+        const notes = Object.keys(selectedFrets).map(k => getNote(...k.split('-').map(Number)));
+        const uniqueNotes = [...new Set(notes)];
+        const results = data.filter(chord => {
+          const formula = chord.formula.split(',').map(f =>
+            parseInt(f.replace(/[^\d]/g, ''), 10)).map(i => (uniqueNotes[0] + i) % 12);
+          const match = formula.filter(n => uniqueNotes.includes(n));
+          return match.length >= Math.min(3, formula.length);
+        });
+
+        const output = document.getElementById('output');
+        output.innerHTML = results.length
+          ? results.slice(0, 5).map(c => `<div><strong>${c.name}</strong> – ${c.formula}</div>`).join('')
+          : 'No chord match';
+      } catch (e) {
+        document.getElementById('debugOutput').innerText = 'Error loading chord data: ' + e.message;
+      }
     }
 
     init();
